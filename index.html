@@ -514,8 +514,14 @@ async function loadHome(banner) {
     await loadConfig();
     const pubSnap = await getDoc(doc(db, 'pub', key));
     if (!pubSnap.exists()) {
-      if (recall('a1.joined') === key) { showWait('You are on the list', 'The coach will set up your plan. Once it is active, open this page again and your streak starts.'); }
-      else { $('phone').value = phone; $('fullname').value = recall('a1.name'); show('sDetails'); }
+      /* Not a member (never joined, or the coach removed them). If this phone knows a name, send the details to the coach again. If they are already on the list the gym refuses the duplicate, which is fine. */
+      const nm = recall('a1.name');
+      if (nm.length >= 2) {
+        try { await setDoc(doc(db, 'signups', key), { name: nm, phone: phone, createdAt: serverTimestamp() }); }
+        catch (e) { if (!(e && e.code === 'permission-denied')) throw e; }
+        remember('a1.joined', key);
+        showWait('You are on the list', 'Your details are with the coach. Once your plan is active, open this page again and your streak starts.');
+      } else { $('phone').value = phone; $('fullname').value = ''; show('sDetails'); }
       return;
     }
     const p = pubSnap.data();
