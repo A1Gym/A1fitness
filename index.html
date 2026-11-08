@@ -342,6 +342,24 @@ button { cursor: pointer; }
 .day.today .dot { border-color: var(--violet); box-shadow: 0 0 0 2px rgba(155, 77, 255, 0.35); }
 .day.today { color: var(--ink); }
 .day.miss .dot { background: rgba(255, 123, 114, 0.12); border-color: rgba(255, 123, 114, 0.4); }
+
+/* Flame streak */
+.streak { align-items: center; }
+.flame { width: 56px; height: 74px; flex: none; overflow: visible; transform-origin: 50% 90%; }
+.flame-out { fill: #FF8A1F; }
+.flame-in { fill: var(--accent-hi); }
+.flame.idle .flame-out { fill: #5A4C70; }
+.flame.idle .flame-in { fill: #7A6C90; }
+.flame.lit { filter: drop-shadow(0 0 14px rgba(255, 138, 31, 0.65)); }
+@media (prefers-reduced-motion: no-preference) {
+  .flame.lit { animation: flicker 1.6s ease-in-out infinite alternate; }
+  .streak.pop .streak-n { animation: pop 0.7s cubic-bezier(.2,1.6,.4,1) both; }
+  .streak.pop .flame { animation: flare 0.9s ease-out both, flicker 1.6s ease-in-out 0.9s infinite alternate; }
+}
+@keyframes flicker { from { transform: scale(1) rotate(-2deg); } to { transform: scale(1.06, 1.1) rotate(2deg); } }
+@keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes flare { 0% { transform: scale(0.3); } 50% { transform: scale(1.35); filter: drop-shadow(0 0 28px rgba(255, 190, 80, 1)); } 100% { transform: scale(1); } }
+.streak-note.cheer { color: var(--accent-hi); font-weight: 600; font-size: 16px; }
 </style></head><body>
 <div class="stage" aria-hidden="true">
   <div class="glow"></div>
@@ -402,6 +420,10 @@ button { cursor: pointer; }
       <span class="pill ok" id="planPill">Active</span>
     </div>
     <div class="streak" id="homeStreak">
+      <svg class="flame idle" id="flame" viewBox="0 0 24 32" aria-hidden="true" focusable="false">
+        <path class="flame-out" d="M12 1c1 7 9 10 9 20a9 9 0 0 1-18 0c0-5 3-7 5-10 .5 3 2 4 3 4 0-5-1-9 1-14z"/>
+        <path class="flame-in" d="M12 30c-3 0-5-2-5-5 0-2.500 2-4 3-6 .6 1.600 1.600 2.300 2.500 2.500C13 19 14 18 14.500 16c2 2.500 2.500 4.500 2.500 6.500 0 4-2.500 7.500-5 7.500z"/>
+      </svg>
       <span class="streak-n" id="homeN">0</span>
       <span class="streak-l">day streak</span>
     </div>
@@ -433,6 +455,7 @@ const db = getFirestore(initializeApp(firebaseConfig));
 const $ = (id) => document.getElementById(id);
 let cfg = { closedWeekdays: [0], closedDates: [] };
 let busy = false;
+let celebrate = false;
 let toastTimer = 0;
 
 /* ---------- dates (plain YYYY-MM-DD strings, device local time) ---------- */
@@ -498,6 +521,14 @@ async function loadConfig() {
   } catch (e) { /* keep the default: Sunday closed */ }
 }
 
+function cheerFor(n) {
+  if (n <= 1) return 'Day one. The fire is lit!';
+  if (n === 7) return 'One whole week. You are on fire!';
+  if (n === 30) return '30 days straight. Beast mode!';
+  if (n === 100) return '100 days. Legend!';
+  return 'Day ' + n + '. Keep it going!';
+}
+
 /* ---------- the member's home ---------- */
 function showWait(title, text) {
   $('waitTitle').textContent = title;
@@ -554,7 +585,13 @@ async function loadHome(banner) {
     const doneToday = got[today];
     const streak = doneToday ? (Number(doneToday.streak) || 1) : got[prev] ? (Number(got[prev].streak) || 0) : 0;
     $('homeN').textContent = String(streak);
-    $('streakNote').textContent = doneToday ? 'You are in today. Come back on the next open day.' : streak ? 'Check in today to make it ' + (streak + 1) + '.' : 'Check in to start your streak.';
+    const cheering = celebrate && !!doneToday;
+    celebrate = false;
+    $('flame').setAttribute('class', 'flame ' + (doneToday ? 'lit' : 'idle'));
+    $('homeStreak').classList.remove('pop');
+    if (cheering) { void $('homeStreak').offsetWidth; $('homeStreak').classList.add('pop'); }
+    $('streakNote').className = 'streak-note' + (cheering ? ' cheer' : '');
+    $('streakNote').textContent = cheering ? cheerFor(streak) : doneToday ? 'You are in today. Come back on the next open day.' : streak ? 'Check in today to make it ' + (streak + 1) + '.' : 'Check in to start your streak.';
     const wk = $('weekRow');
     wk.replaceChildren();
     days.forEach((d) => {
@@ -608,7 +645,8 @@ async function doCheckIn() {
       const ps = await getDoc(doc(db, 'checkins', key + '_' + openBefore(today)));
       const streak = ps.exists() ? (Number(ps.data().streak) || 0) + 1 : 1;
       await setDoc(doc(db, 'checkins', id), { key: key, name: p.name, date: today, at: serverTimestamp(), streak: streak });
-      banner = streak === 1 ? 'Checked in. Day one, come back on the next open day.' : 'Checked in. Keep it going.';
+      banner = 'Checked in.';
+      celebrate = true;
     }
   } catch (err) {
     toast(errText(err));
