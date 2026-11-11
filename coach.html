@@ -426,6 +426,23 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 @media (prefers-reduced-motion: reduce) { .hday::after, .hday-emoji { animation: none; } }
 
 .paid-ro { font-size: 14px; font-weight: 600; align-self: center; }
+
+/* Owner dashboard */
+#desk.simple .strip, #desk.simple .scan:not(#paySection), #desk.simple .add, #desk.simple .controls, #desk.simple .rows, #desk.simple .empty, #desk.simple .backup-note { display: none; }
+.odash { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.ogrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ocard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; text-align: left; color: var(--ink); font: inherit; background: rgba(21, 15, 32, 0.82); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-height: 112px; }
+.ocard[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ocard .stat-n { font-size: 52px; line-height: 1; }
+.opanel { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(21, 15, 32, 0.82); display: flex; flex-direction: column; gap: 10px; }
+.opanel h2 { margin: 0; font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.olist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.orow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(11, 7, 19, 0.6); }
+.o-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.o-n { font-weight: 600; overflow-wrap: anywhere; }
+.o-s { font-family: var(--f-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.otools { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+#outBtn { margin-top: 10px; }
 </style></head><body>
 <div class="stage" aria-hidden="true">
   <div class="glow"></div>
@@ -473,6 +490,25 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
       <div class="stat"><div class="stat-n" id="nActive">0</div><div class="stat-l">Active members</div></div>
       <div class="stat"><div class="stat-n" id="nToday">0</div><div class="stat-l">In today</div></div>
       <div class="stat"><div class="stat-n" id="nUnpaid">0</div><div class="stat-l">Not paid</div></div>
+    </section>
+
+    <section class="odash" id="ownerDash" aria-label="Owner summary" hidden>
+      <div class="ogrid" id="oGrid">
+        <button class="ocard" type="button" data-k="members" aria-pressed="false"><div class="stat-n" id="oMembers">0</div><div class="stat-l">Active members</div></button>
+        <button class="ocard" type="button" data-k="inside" aria-pressed="false"><div class="stat-n" id="oInside">0</div><div class="stat-l">In the gym now</div></button>
+        <button class="ocard" type="button" data-k="unpaid" aria-pressed="false"><div class="stat-n" id="oUnpaid">0</div><div class="stat-l">Not paid</div></button>
+        <button class="ocard" type="button" data-k="due" aria-pressed="false"><div class="stat-n" id="oDue">0</div><div class="stat-l">Plans due or ended</div></button>
+      </div>
+      <div class="opanel" id="oPanel" hidden>
+        <h2 id="oPanelT"></h2>
+        <ul class="olist" id="oPanelList"></ul>
+      </div>
+      <div class="otools">
+        <label class="rem-cc">Auto check-out after (hours) <input id="oHours" type="number" min="1" max="12" step="1" inputmode="numeric" aria-label="Auto check-out hours"></label>
+        <button class="btn" id="oHoursSave" type="button">Save</button>
+        <button class="btn btn-quiet" id="moreBtn" type="button">Show full desk</button>
+      </div>
+      <p class="pass-note">Members tap Check out when they leave. If they forget, they count as out after the hours above.</p>
     </section>
 
     <p class="pass-note backup-note" id="backupNote"></p>
@@ -596,13 +632,14 @@ const auth = getAuth(app);
 
 const $ = (id) => document.getElementById(id);
 const S = {
-  members: {}, signups: {}, cfg: { closedWeekdays: [0], closedDates: [] }, todayDocs: [],
+  members: {}, signups: {}, cfg: { closedWeekdays: [0], closedDates: [], autoOutHours: 3 }, todayDocs: [], outDocs: [], full: false, ov: '',
   rem: { lang: 'hinglish', drafts: {}, pending: false }, loaded: false, error: '', filter: 'all', q: '', confirmId: null, renewId: null, renewDraft: null, busy: false
 };
 /* Two staff logins. Both use this page. Only the owner can tick "paid". Create both in Firebase Authentication. */
 const OWNER_EMAIL = 'owner@a1fitness.com';
 const OWNER_WA = '919166885529';
 let isOwner = false;
+let outUnsub = null;
 let unsubs = [];
 let todayUnsub = null;
 let todayWatching = '';
@@ -936,6 +973,7 @@ function renderList() {
   renderStats();
   renderToday();
   renderPay();
+  renderOwner();
   renderReminders();
   const list = S.loaded ? visibleMembers() : [];
   const ul = $('rows');
@@ -972,6 +1010,51 @@ function reminderText(m, lang) {
     ? 'Hi ' + n + '! Aapki A1 membership khatam ho gayi hai. Renew kar lijiye, shukriya!'
     : 'Hi ' + n + '! Aapki A1 membership ' + d + ' ko khatam ho rahi hai. Renew kar lijiye, shukriya!';
 }
+/* ---------- owner dashboard: a few big numbers, tap one to see the names ---------- */
+function insideNow() {
+  const outs = {};
+  S.outDocs.forEach((o) => { outs[o.key] = true; });
+  const limit = (Number(S.cfg.autoOutHours) || 3) * 3600000;
+  const now = Date.now();
+  return S.todayDocs.filter((c) => !outs[c.key] && (!c.atMs || now - c.atMs < limit)).sort((a, b) => a.atMs - b.atMs);
+}
+function activeMembers() {
+  return allPeople().filter((m) => { if (m.pendingSignup) return false; const st = status(m); return !st.paused && !st.pending && !st.expired; })
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+function markPaid(m) { return run(() => writeBatchOps((b) => b.update(doc(db, 'members', m.id), { paid: true })), (m.name || 'Member') + ' marked as paid').then(() => renderList()); }
+function renderOwner() {
+  $('ownerDash').hidden = !isOwner;
+  $('desk').classList.toggle('simple', isOwner && !S.full);
+  if (!isOwner) return;
+  const hrs = Number(S.cfg.autoOutHours) || 3;
+  const act = activeMembers(), ins = insideNow(), unp = waitingList().filter((m) => !m.pendingSignup), due = dueList();
+  const n = (v) => (S.loaded ? String(v) : '–');
+  $('oMembers').textContent = n(act.length);
+  $('oInside').textContent = n(ins.length);
+  $('oUnpaid').textContent = n(unp.length);
+  $('oDue').textContent = n(due.length);
+  $('oUnpaid').className = 'stat-n' + (unp.length ? ' bad' : '');
+  $('oDue').className = 'stat-n' + (due.length ? ' bad' : '');
+  Array.prototype.forEach.call($('oGrid').querySelectorAll('button'), (b) => { b.setAttribute('aria-pressed', String(b.getAttribute('data-k') === S.ov)); });
+  $('moreBtn').textContent = S.full ? 'Show simple view' : 'Show full desk';
+  const panel = $('oPanel');
+  panel.hidden = !S.ov;
+  if (S.ov) {
+    const row = (name, sub, extra) => h('li', { class: 'orow' }, h('div', { class: 'o-main' }, h('span', { class: 'o-n', text: name || 'Member' }), h('span', { class: 'o-s', text: sub })), extra || null);
+    let title = '', rows = [];
+    if (S.ov === 'members') { title = 'Active members'; rows = act.map((m) => row(m.name, (m.phone || '') + ' · ends ' + fmt(m.end))); }
+    if (S.ov === 'inside') { title = 'In the gym now'; rows = ins.map((c) => row(c.name, c.atMs ? 'In at ' + timeOf(c.atMs) + ' · out by ' + timeOf(c.atMs + hrs * 3600000) : 'Just checked in')); }
+    if (S.ov === 'unpaid') { title = 'Not paid'; rows = unp.map((m) => row(m.name, (m.phone || '') + ' · ' + planLabel(m), h('button', { class: 'btn btn-primary', type: 'button', text: 'Mark paid', onclick: () => markPaid(m) }))); }
+    if (S.ov === 'due') { title = 'Plans due or ended'; rows = due.map((m) => row(m.name, status(m).label + ' · ' + fmt(m.end) + (m.paid === true ? '' : ' · not paid'))); }
+    $('oPanelT').textContent = title + ' (' + rows.length + ')';
+    const ul = $('oPanelList');
+    ul.replaceChildren.apply(ul, rows.length ? rows : [h('li', { class: 'pass-note', text: 'No one.' })]);
+  }
+  const hi = $('oHours');
+  if (document.activeElement !== hi) hi.value = String(hrs);
+}
+
 /* ---------- waiting for payment (owner confirms, coach tells the owner on WhatsApp) ---------- */
 function ownerUrl(text) { return 'https://wa.me/' + OWNER_WA + '?text=' + encodeURIComponent(text); }
 function signupText(m) { return 'A1 Fitness: ' + (m.name || 'A new member') + ' (' + (m.phone || '') + ') just signed up. Please check payment.'; }
@@ -1244,6 +1327,11 @@ function watchToday() {
     renderList();
     applyCheckins(S.todayDocs);
   }, () => {});
+  if (outUnsub) outUnsub();
+  outUnsub = onSnapshot(query(collection(db, 'checkouts'), where('date', '==', t)), (snap) => {
+    S.outDocs = snap.docs.map((d) => { const o = d.data(); return { key: o.key, atMs: o.at && o.at.toMillis ? o.at.toMillis() : 0 }; });
+    renderList();
+  }, () => {});
 }
 
 /* ---------- live data ---------- */
@@ -1277,9 +1365,9 @@ function startData() {
     S.cfgLoaded = true;
     if (snap.exists()) {
       const d = snap.data();
-      S.cfg = { closedWeekdays: Array.isArray(d.closedWeekdays) ? d.closedWeekdays : [0], closedDates: Array.isArray(d.closedDates) ? d.closedDates : [] };
+      S.cfg = { closedWeekdays: Array.isArray(d.closedWeekdays) ? d.closedWeekdays : [0], closedDates: Array.isArray(d.closedDates) ? d.closedDates : [], autoOutHours: Number(d.autoOutHours) > 0 ? Number(d.autoOutHours) : 3 };
     } else {
-      S.cfg = { closedWeekdays: [0], closedDates: [] };
+      S.cfg = { closedWeekdays: [0], closedDates: [], autoOutHours: 3 };
     }
     renderList();
   }, () => {}));
@@ -1290,8 +1378,9 @@ function stopData() {
   unsubs.forEach((u) => { try { u(); } catch (e) {} });
   unsubs = [];
   if (todayUnsub) { todayUnsub(); todayUnsub = null; }
+  if (outUnsub) { outUnsub(); outUnsub = null; }
   todayWatching = '';
-  S.members = {}; S.signups = {}; S.todayDocs = [];
+  S.members = {}; S.signups = {}; S.todayDocs = []; S.outDocs = [];
 }
 
 /* ---------- add member ---------- */
@@ -1477,6 +1566,15 @@ function wire() {
   $('remCc').addEventListener('input', () => { try { localStorage.setItem('a1.cc', ccValue()); } catch (e) {} renderReminders(); });
   $('remList').addEventListener('focusout', () => { setTimeout(() => { if (S.rem.pending) renderReminders(); }, 0); });
   $('signOutBtn').addEventListener('click', () => { signOut(auth); });
+  $('oGrid').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (!b) return; const k = b.getAttribute('data-k'); S.ov = S.ov === k ? '' : k; renderOwner(); });
+  try { S.full = localStorage.getItem('a1.full') === '1'; } catch (e) {}
+  $('moreBtn').addEventListener('click', () => { S.full = !S.full; try { localStorage.setItem('a1.full', S.full ? '1' : '0'); } catch (e) {} renderOwner(); });
+  $('oHoursSave').addEventListener('click', () => {
+    const v = Math.round(Number($('oHours').value));
+    if (!(v >= 1 && v <= 12)) { toast('Enter 1 to 12 hours.'); return; }
+    run(() => setDoc(doc(db, 'config', 'gym'), { autoOutHours: v }, { merge: true }), 'Auto check-out set to ' + v + (v === 1 ? ' hour' : ' hours'));
+  });
+  setInterval(() => { if (isOwner) renderOwner(); }, 60000);
   $('addToggle').addEventListener('click', () => { setAddOpen($('addForm').hidden); if (!$('addForm').hidden) $('fName').focus(); });
   $('fCancel').addEventListener('click', () => { resetForm(); setAddOpen(false); });
   $('fName').addEventListener('input', () => { $('fNameErr').hidden = true; });
@@ -1503,7 +1601,7 @@ function wire() {
   });
   $('cdSave').addEventListener('click', () => {
     const data = { closedWeekdays: cdDraft.closedWeekdays.slice().sort(), closedDates: cdDraft.closedDates.slice().sort() };
-    run(() => setDoc(doc(db, 'config', 'gym'), data), 'Closed days saved').then((ok) => { if (ok) closeClosed(); });
+    run(() => setDoc(doc(db, 'config', 'gym'), data, { merge: true }), 'Closed days saved').then((ok) => { if (ok) closeClosed(); });
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

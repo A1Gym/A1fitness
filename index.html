@@ -413,6 +413,36 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .board li.me { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(155, 77, 255, 0.35); }
 #badgeNote, #boardAsOf { margin-top: 4px; }
 .badges-wrap, .board-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+/* Holiday greeting banner */
+.hday { --h-bg: linear-gradient(135deg,#2a1c05,#0b0713); --h-ac: var(--accent); --h-fg: #fff; position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; border: 1px solid var(--h-ac); background: var(--h-bg); color: var(--h-fg); box-shadow: 0 0 22px rgba(0, 0, 0, 0.45); }
+.hday::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%); transform: translateX(-120%); animation: hdsheen 4.5s ease-in-out 0.6s infinite; pointer-events: none; }
+.hday-emoji { flex: none; font-size: 42px; line-height: 1; animation: hdbob 2.4s ease-in-out infinite; }
+.hday-txt { min-width: 0; display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1; }
+.hday-t { font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 26px; line-height: 1.05; text-transform: uppercase; letter-spacing: 0.03em; overflow-wrap: anywhere; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
+.hday-s { font-size: 14px; line-height: 1.35; opacity: 0.92; }
+@keyframes hdsheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+@keyframes hdbob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-4px) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .hday::after, .hday-emoji { animation: none; } }
+
+.paid-ro { font-size: 14px; font-weight: 600; align-self: center; }
+
+/* Owner dashboard */
+#desk.simple .strip, #desk.simple .scan:not(#paySection), #desk.simple .add, #desk.simple .controls, #desk.simple .rows, #desk.simple .empty, #desk.simple .backup-note { display: none; }
+.odash { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.ogrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ocard { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; text-align: left; color: var(--ink); font: inherit; background: rgba(21, 15, 32, 0.82); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-height: 112px; }
+.ocard[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ocard .stat-n { font-size: 52px; line-height: 1; }
+.opanel { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(21, 15, 32, 0.82); display: flex; flex-direction: column; gap: 10px; }
+.opanel h2 { margin: 0; font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.olist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.orow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(11, 7, 19, 0.6); }
+.o-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.o-n { font-weight: 600; overflow-wrap: anywhere; }
+.o-s { font-family: var(--f-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.otools { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+#outBtn { margin-top: 10px; }
 </style></head><body>
 <div class="stage" aria-hidden="true">
   <div class="glow"></div>
@@ -465,6 +495,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
   </section>
 
   <section class="card" id="sHome" hidden aria-live="polite">
+    <div class="hday" id="holidayBanner" hidden><span class="hday-emoji" id="hdEmoji" aria-hidden="true"></span><div class="hday-txt"><div class="hday-t" id="hdTitle"></div><div class="hday-s" id="hdLine"></div></div></div>
     <div class="home-top">
       <div>
         <div class="res-kind" id="hiKind">Member</div>
@@ -484,6 +515,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
     <div class="week" id="weekRow" aria-label="Last 7 days"></div>
     <div class="res-lines" id="homeLines"></div>
     <button class="btn btn-primary btn-big" id="checkBtn" type="button">Check in</button>
+    <button class="btn btn-big" id="outBtn" type="button" hidden>Check out</button>
+    <p class="streak-note" id="outNote" hidden></p>
     <div class="badges-wrap" id="badgesWrap">
       <h2 class="sub-h">Badges</h2>
       <div class="badges" id="badges"></div>
@@ -516,7 +549,7 @@ const firebaseConfig = {
 const db = getFirestore(initializeApp(firebaseConfig));
 
 const $ = (id) => document.getElementById(id);
-let cfg = { closedWeekdays: [0], closedDates: [] };
+let cfg = { closedWeekdays: [0], closedDates: [], autoOutHours: 3 };
 let busy = false;
 let celebrate = false;
 let toastTimer = 0;
@@ -578,7 +611,8 @@ async function loadConfig() {
       const d = s.data();
       cfg = {
         closedWeekdays: Array.isArray(d.closedWeekdays) ? d.closedWeekdays : [0],
-        closedDates: Array.isArray(d.closedDates) ? d.closedDates : []
+        closedDates: Array.isArray(d.closedDates) ? d.closedDates : [],
+        autoOutHours: Number(d.autoOutHours) > 0 ? Number(d.autoOutHours) : 3
       };
     }
   } catch (e) { /* keep the default: Sunday closed */ }
@@ -593,6 +627,131 @@ function cheerFor(n) {
 }
 
 /* ---------- the member's home ---------- */
+const HOLIDAYS = {
+  '2026-01-01': ['newyear', 1],
+  '2026-01-14': ['sankranti', 1],
+  '2026-01-26': ['republic', 1],
+  '2026-02-15': ['shivratri', 1],
+  '2026-03-04': ['holi', 1],
+  '2026-03-20': ['eidfitr', 2],
+  '2026-04-03': ['goodfriday', 1],
+  '2026-05-27': ['eidadha', 2],
+  '2026-08-15': ['independence', 1],
+  '2026-08-28': ['rakhi', 1],
+  '2026-09-14': ['ganesh', 1],
+  '2026-10-02': ['gandhi', 1],
+  '2026-10-20': ['dussehra', 1],
+  '2026-11-08': ['diwali', 1],
+  '2026-11-24': ['gurpurab', 1],
+  '2026-12-25': ['christmas', 1],
+  '2027-01-01': ['newyear', 1],
+  '2027-01-14': ['sankranti', 1],
+  '2027-01-26': ['republic', 1],
+  '2027-03-06': ['shivratri', 1],
+  '2027-03-09': ['eidfitr', 2],
+  '2027-03-22': ['holi', 1],
+  '2027-03-26': ['goodfriday', 1],
+  '2027-05-16': ['eidadha', 2],
+  '2027-08-15': ['independence', 1],
+  '2027-08-17': ['rakhi', 1],
+  '2027-09-04': ['ganesh', 1],
+  '2027-10-02': ['gandhi', 1],
+  '2027-10-10': ['dussehra', 1],
+  '2027-10-29': ['diwali', 1],
+  '2027-11-14': ['gurpurab', 1],
+  '2027-12-25': ['christmas', 1],
+  '2028-01-01': ['newyear', 1],
+  '2028-01-15': ['sankranti', 1],
+  '2028-01-26': ['republic', 1],
+  '2028-02-23': ['shivratri', 1],
+  '2028-02-26': ['eidfitr', 2],
+  '2028-03-11': ['holi', 1],
+  '2028-04-14': ['goodfriday', 1],
+  '2028-05-04': ['eidadha', 2],
+  '2028-08-05': ['rakhi', 1],
+  '2028-08-15': ['independence', 1],
+  '2028-08-24': ['ganesh', 1],
+  '2028-09-28': ['dussehra', 1],
+  '2028-10-02': ['gandhi', 1],
+  '2028-10-17': ['diwali', 1],
+  '2028-11-02': ['gurpurab', 1],
+  '2028-12-25': ['christmas', 1],
+  '2029-01-01': ['newyear', 1],
+  '2029-01-14': ['sankranti', 1],
+  '2029-01-26': ['republic', 1],
+  '2029-02-11': ['shivratri', 1],
+  '2029-02-14': ['eidfitr', 2],
+  '2029-03-01': ['holi', 1],
+  '2029-03-30': ['goodfriday', 1],
+  '2029-04-23': ['eidadha', 2],
+  '2029-08-15': ['independence', 1],
+  '2029-08-23': ['rakhi', 1],
+  '2029-09-12': ['ganesh', 1],
+  '2029-10-02': ['gandhi', 1],
+  '2029-10-17': ['dussehra', 1],
+  '2029-11-05': ['diwali', 1],
+  '2029-11-21': ['gurpurab', 1],
+  '2029-12-25': ['christmas', 1],
+  '2030-01-01': ['newyear', 1],
+  '2030-01-14': ['sankranti', 1],
+  '2030-01-26': ['republic', 1],
+  '2030-02-04': ['eidfitr', 2],
+  '2030-03-02': ['shivratri', 1],
+  '2030-03-20': ['holi', 1],
+  '2030-04-13': ['eidadha', 2],
+  '2030-04-19': ['goodfriday', 1],
+  '2030-08-13': ['rakhi', 1],
+  '2030-08-15': ['independence', 1],
+  '2030-09-01': ['ganesh', 1],
+  '2030-10-02': ['gandhi', 1],
+  '2030-10-06': ['dussehra', 1],
+  '2030-10-26': ['diwali', 1],
+  '2030-11-10': ['gurpurab', 1],
+  '2030-12-25': ['christmas', 1]
+};
+
+/* ---------- holiday greetings (member page only; the coach still decides closed days) ----------
+   Dates for 2026-2030. Fixed holidays are exact. Festival dates follow the moon, so they are
+   worked out from the lunar calendar and should be re-checked once a year. Eid is shown for two
+   days because India sees the moon a day after Saudi Arabia. */
+const HDAY = {
+  newyear:      { e: '\u2728', t: 'Happy New Year', s: 'New year, new reps. Let\u2019s make it your strongest one yet.', bg: 'linear-gradient(135deg,#2a1c05,#0b0713 60%,#3a2a08)', ac: '#f2b83b', fg: '#ffe9a8' },
+  sankranti:    { e: '\ud83e\ude81', t: 'Happy Makar Sankranti', s: 'Til-gud khao, meetha bolo. Fly high today!', bg: 'linear-gradient(135deg,#ff8a1f,#ffb347 55%,#4fb3ff)', ac: '#ffd27a', fg: '#2b1200' },
+  republic:     { e: '\ud83c\uddee\ud83c\uddf3', t: 'Happy Republic Day', s: 'Jai Hind! Strong body, strong nation.', bg: 'linear-gradient(180deg,#ff9933 0 33%,#ffffff 33% 66%,#138808 66%)', ac: '#138808', fg: '#10205a' },
+  shivratri:    { e: '\ud83d\udd31', t: 'Happy Maha Shivratri', s: 'Har Har Mahadev. Strength and peace to you and your family.', bg: 'linear-gradient(135deg,#0d1240,#2a2f8f 60%,#7fb6ff)', ac: '#9fd0ff', fg: '#eaf3ff' },
+  holi:         { e: '\ud83c\udfa8', t: 'Happy Holi', s: 'Bura na mano, Holi hai! Wishing you a day full of colour.', bg: 'linear-gradient(120deg,#ff2d95,#ff9f1c 35%,#ffe600 55%,#22d3ee 78%,#7c3aed)', ac: '#ffffff', fg: '#1b0a2a' },
+  eidfitr:      { e: '\ud83c\udf19', t: 'Eid Mubarak', s: 'Wishing you joy, peace and sweet moments with your family.', bg: 'linear-gradient(135deg,#052e22,#0f7a54 60%,#d9b44a)', ac: '#f3d57a', fg: '#f4fff9' },
+  goodfriday:   { e: '\ud83d\udd4a\ufe0f', t: 'Good Friday', s: 'Wishing you a peaceful and thoughtful day.', bg: 'linear-gradient(135deg,#1a1626,#3b3558 70%,#6e6890)', ac: '#cfc8ee', fg: '#f0edfb' },
+  eidadha:      { e: '\ud83d\udd4c', t: 'Eid al-Adha Mubarak', s: 'May your day be full of blessings and good food.', bg: 'linear-gradient(135deg,#032b33,#0c7d8c 60%,#e8f3f1)', ac: '#9be7ee', fg: '#f2fffd' },
+  rakhi:        { e: '\ud83e\uddf5', t: 'Happy Raksha Bandhan', s: 'To every brother and sister: stay strong, stay together.', bg: 'linear-gradient(135deg,#6d1030,#d6336c 60%,#ffc2d6)', ac: '#ffd9a0', fg: '#fff3f6' },
+  independence: { e: '\u2638\ufe0f', t: 'Happy Independence Day', s: 'Jai Hind! Proud, free and fit.', bg: 'linear-gradient(180deg,#0a1a52 0 70%,#ff9933 70% 80%,#fff 80% 90%,#138808 90%)', ac: '#ff9933', fg: '#ffffff' },
+  ganesh:       { e: '\ud83d\udc18', t: 'Ganpati Bappa Morya', s: 'Happy Ganesh Chaturthi. May every obstacle melt away.', bg: 'linear-gradient(135deg,#c2260c,#ff6a1a 60%,#ffc233)', ac: '#fff0b8', fg: '#fff8ec' },
+  gandhi:       { e: '\ud83d\udc53', t: 'Gandhi Jayanti', s: 'Truth, simplicity and discipline. Good ideas for the gym too.', bg: 'linear-gradient(135deg,#3b3322,#8a7a52 65%,#e9dfc2)', ac: '#f1e6c0', fg: '#fffaf0' },
+  dussehra:     { e: '\ud83c\udff9', t: 'Happy Dussehra', s: 'Good wins over evil. Win your own battle today.', bg: 'linear-gradient(135deg,#5a0a05,#d92b0a 55%,#ff9e1b)', ac: '#ffd36a', fg: '#fff6e5' },
+  diwali:       { e: '\ud83e\ude94', t: 'Happy Diwali', s: 'Wishing you light, health and prosperity.', bg: 'radial-gradient(circle at 20% 20%,#ffcf4a,transparent 45%),radial-gradient(circle at 85% 80%,#ff7a18,transparent 45%),linear-gradient(135deg,#2a0b4d,#4b1b86)', ac: '#ffd45e', fg: '#fff7de' },
+  gurpurab:     { e: '\ud83d\ude4f', t: 'Happy Gurpurab', s: 'Guru Nanak Jayanti di lakh lakh vadhaiyan.', bg: 'linear-gradient(135deg,#0b2a6b,#1e5fd8 60%,#ffb703)', ac: '#ffd166', fg: '#f4f8ff' },
+  christmas:    { e: '\ud83c\udf84', t: 'Merry Christmas', s: 'Wishing you a warm and happy day.', bg: 'linear-gradient(135deg,#7a0c16,#c1121f 50%,#14532d)', ac: '#ffe7a3', fg: '#fff5f5' }
+};
+function holidayFor(today) {
+  for (let i = 0; i < 2; i++) {
+    const h = HOLIDAYS[addDays(today, -i)];
+    if (h && h[1] > i) return HDAY[h[0]] || null;
+  }
+  return null;
+}
+function renderHoliday(today, first) {
+  const el = $('holidayBanner');
+  const h = holidayFor(today);
+  if (!h) { el.hidden = true; return; }
+  el.style.setProperty('--h-bg', h.bg);
+  el.style.setProperty('--h-ac', h.ac);
+  el.style.setProperty('--h-fg', h.fg);
+  $('hdEmoji').textContent = h.e;
+  $('hdTitle').textContent = h.t + (first ? ', ' + first : '');
+  $('hdLine').textContent = h.s + ' \u2014 Team A1 Fitness';
+  el.hidden = false;
+}
+
 const BADGES = [7, 30, 100];
 function renderBadges(best) {
   const box = $('badges');
@@ -667,6 +826,7 @@ async function loadHome(banner) {
     const today = todayISO();
     const first = String(p.name || '').split(' ')[0];
     $('hiName').textContent = first ? 'Hello, ' + first : 'Hello';
+    renderHoliday(today, first);
     const expired = !p.end || p.end <= today;
     const paused = p.state === 'paused';
     const inactive = paused || expired;
@@ -725,6 +885,17 @@ async function loadHome(banner) {
     if (left <= 7) info.push('Ask the coach about renewing.');
     if (banner) info.unshift(banner);
     lines($('homeLines'), info);
+    let outDoc = null;
+    if (doneToday) { try { const o = await getDoc(doc(db, 'checkouts', key + '_' + today)); if (o.exists()) outDoc = o.data(); } catch (e) { /* no check-out info */ } }
+    const ob = $('outBtn'), on = $('outNote');
+    ob.hidden = true; on.hidden = true;
+    if (doneToday) {
+      const inMs = doneToday.at && doneToday.at.toMillis ? doneToday.at.toMillis() : 0;
+      const hrs = cfg.autoOutHours || 3;
+      if (outDoc) { on.textContent = 'Checked out at ' + (outDoc.at && outDoc.at.toMillis ? timeOf(outDoc.at.toMillis()) : 'today') + '. See you next time.'; on.hidden = false; }
+      else if (inMs && Date.now() - inMs >= hrs * 3600000) { on.textContent = 'Your session ended by itself after ' + dayWord(hrs).replace('day', 'hour') + '.'; on.hidden = false; }
+      else { ob.disabled = false; ob.hidden = false; }
+    }
     const btn = $('checkBtn');
     if (doneToday) { btn.disabled = true; btn.textContent = 'Checked in at ' + (doneToday.at && doneToday.at.toMillis ? timeOf(doneToday.at.toMillis()) : 'today'); }
     else if (isClosed(today)) { btn.disabled = true; btn.textContent = 'A1 is closed today'; }
@@ -738,6 +909,23 @@ async function loadHome(banner) {
   }
 }
 
+async function doCheckOut() {
+  if (busy) return;
+  const key = phoneKey(recall('a1.phone'));
+  busy = true;
+  $('outBtn').disabled = true;
+  let banner = '';
+  try {
+    const today = todayISO();
+    await setDoc(doc(db, 'checkouts', key + '_' + today), { key: key, date: today, at: serverTimestamp() });
+    banner = 'Checked out.';
+  } catch (err) {
+    if (!(err && err.code === 'permission-denied')) toast(errText(err));
+  } finally {
+    busy = false;
+  }
+  loadHome(banner);
+}
 async function doCheckIn() {
   if (busy) return;
   const key = phoneKey(recall('a1.phone'));
@@ -817,6 +1005,7 @@ $('detailsForm').addEventListener('submit', (e) => {
 $('phone').addEventListener('input', () => { $('phoneErr').hidden = true; });
 $('fullname').addEventListener('input', () => { $('nameErr').hidden = true; });
 $('checkBtn').addEventListener('click', doCheckIn);
+$('outBtn').addEventListener('click', doCheckOut);
 $('waitCheck').addEventListener('click', () => loadHome(''));
 const another = () => { forget(); $('phone').value = ''; $('fullname').value = ''; show('sDetails'); };
 $('switchBtn').addEventListener('click', another);
