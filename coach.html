@@ -394,6 +394,38 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 
 .backup-note { margin-top: 10px; }
 .backup-note.stale { color: var(--warn); }
+
+/* Badges and leaderboard */
+.sub-h { margin: 6px 0 0; font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.badges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.badge { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 12px; background: rgba(11, 7, 19, 0.6); text-align: center; }
+.badge-n { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 26px; border: 2px dashed var(--line); color: var(--muted); }
+.badge-l { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.badge.earned { border-color: var(--accent); }
+.badge.earned .badge-n { border: 2px solid var(--accent-hi); background: linear-gradient(180deg, var(--accent-hi), var(--accent) 60%, var(--accent-lo)); color: var(--accent-ink); box-shadow: 0 0 18px rgba(242, 184, 59, 0.4); }
+.badge.earned .badge-l { color: var(--accent-hi); }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: rank; }
+.board li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(11, 7, 19, 0.6); }
+.board .rank { font-family: var(--f-display); font-weight: 700; font-size: 22px; color: var(--accent); text-align: center; }
+.board .who { overflow-wrap: anywhere; font-weight: 600; }
+.board .who small { margin-left: 6px; font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--violet); }
+.board .pts { font-family: var(--f-mono); font-size: 14px; color: var(--accent-hi); white-space: nowrap; }
+.board li.me { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(155, 77, 255, 0.35); }
+#badgeNote, #boardAsOf { margin-top: 4px; }
+.badges-wrap, .board-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+/* Holiday greeting banner */
+.hday { --h-bg: linear-gradient(135deg,#2a1c05,#0b0713); --h-ac: var(--accent); --h-fg: #fff; position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; border: 1px solid var(--h-ac); background: var(--h-bg); color: var(--h-fg); box-shadow: 0 0 22px rgba(0, 0, 0, 0.45); }
+.hday::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%); transform: translateX(-120%); animation: hdsheen 4.5s ease-in-out 0.6s infinite; pointer-events: none; }
+.hday-emoji { flex: none; font-size: 42px; line-height: 1; animation: hdbob 2.4s ease-in-out infinite; }
+.hday-txt { min-width: 0; display: flex; flex-direction: column; gap: 4px; position: relative; z-index: 1; }
+.hday-t { font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 26px; line-height: 1.05; text-transform: uppercase; letter-spacing: 0.03em; overflow-wrap: anywhere; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
+.hday-s { font-size: 14px; line-height: 1.35; opacity: 0.92; }
+@keyframes hdsheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+@keyframes hdbob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-4px) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .hday::after, .hday-emoji { animation: none; } }
+
+.paid-ro { font-size: 14px; font-weight: 600; align-self: center; }
 </style></head><body>
 <div class="stage" aria-hidden="true">
   <div class="glow"></div>
@@ -450,6 +482,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
       <p class="pass-note" id="closedNote" hidden>A1 is closed today. Streaks skip closed days.</p>
       <ul class="in-list" id="todayList"></ul>
       <p class="pass-note">Members check in on their own phones. The Check in button on a member is for anyone without a phone.</p>
+    </section>
+
+    <section class="scan rem" id="paySection" aria-label="Waiting for payment" hidden>
+      <div class="scan-head"><h2>Waiting for payment</h2><span class="today-count" id="payCount"></span></div>
+      <p class="pass-note" id="payNote"></p>
+      <div class="actions"><a class="btn" id="payAll" target="_blank" rel="noopener" href="#">Send the whole list to the owner</a></div>
+      <ul class="rem-list" id="payList"></ul>
     </section>
 
     <section class="scan rem" id="remSection" aria-label="Payment reminders" hidden>
@@ -560,6 +599,10 @@ const S = {
   members: {}, signups: {}, cfg: { closedWeekdays: [0], closedDates: [] }, todayDocs: [],
   rem: { lang: 'hinglish', drafts: {}, pending: false }, loaded: false, error: '', filter: 'all', q: '', confirmId: null, renewId: null, renewDraft: null, busy: false
 };
+/* Two staff logins. Both use this page. Only the owner can tick "paid". Create both in Firebase Authentication. */
+const OWNER_EMAIL = 'owner@a1fitness.com';
+const OWNER_WA = '919166885529';
+let isOwner = false;
 let unsubs = [];
 let todayUnsub = null;
 let todayWatching = '';
@@ -748,9 +791,11 @@ function buildPlan(d, idp, startLabel) {
       h('div', { class: 'chips', role: 'group', 'aria-label': 'Plan length' }, opts, customChip)),
     customField,
     h('div', { class: 'field full' }, endLine),
-    h('label', { class: 'paid full' },
-      h('input', { id: idp + 'Paid', type: 'checkbox', checked: d.paid, onchange: (e) => { d.paid = e.target.checked; } }),
-      h('span', { text: 'Paid for this plan' })),
+    isOwner
+      ? h('label', { class: 'paid full' },
+        h('input', { id: idp + 'Paid', type: 'checkbox', checked: d.paid, onchange: (e) => { d.paid = e.target.checked; } }),
+        h('span', { text: 'Paid for this plan' }))
+      : h('p', { class: 'pass-note full', text: 'Payment is confirmed by the owner. This plan is saved as not paid for now.' }),
     errEl
   );
   upd();
@@ -838,20 +883,23 @@ function memberRow(m) {
   } else if (m.pendingSignup) {
     parts.push(h('div', { class: 'actions' },
       h('button', { class: 'btn btn-primary', type: 'button', text: 'Set plan', onclick: () => openRenew(m) }),
+      isOwner ? null : h('a', { class: 'btn', target: '_blank', rel: 'noopener', text: 'Tell owner', href: ownerUrl(signupText(m)) }),
       h('button', { class: 'btn btn-quiet btn-danger', type: 'button', text: 'Remove', onclick: () => { S.confirmId = m.id; renderList(); } })
     ));
   } else {
     parts.push(h('div', { class: 'actions' },
       h('button', { class: 'btn', type: 'button', text: 'Check in', onclick: () => coachCheckIn(m) }),
-      h('label', { class: 'paid' },
-        h('input', {
-          type: 'checkbox', checked: paidNow, 'aria-label': 'Paid for ' + name,
-          onchange: (e) => {
-            const v = e.target.checked;
-            run(() => writeBatchOps((b) => b.update(doc(db, 'members', m.id), { paid: v })), v ? name + ' marked as paid' : name + ' marked as not paid').then(() => renderList());
-          }
-        }),
-        h('span', { class: paidNow ? 'ok' : 'warn', text: paidNow ? 'Paid' : 'Not paid' })),
+      isOwner
+        ? h('label', { class: 'paid' },
+          h('input', {
+            type: 'checkbox', checked: paidNow, 'aria-label': 'Paid for ' + name,
+            onchange: (e) => {
+              const v = e.target.checked;
+              run(() => writeBatchOps((b) => b.update(doc(db, 'members', m.id), { paid: v })), v ? name + ' marked as paid' : name + ' marked as not paid').then(() => renderList());
+            }
+          }),
+          h('span', { class: paidNow ? 'ok' : 'warn', text: paidNow ? 'Paid' : 'Not paid' }))
+        : h('span', { class: 'paid-ro ' + (paidNow ? 'ok' : 'warn'), text: paidNow ? 'Paid' : 'Not paid (owner confirms)' }),
       h('button', { class: 'btn' + (st.expired || st.pending ? ' btn-primary' : ''), type: 'button', text: st.pending ? 'Set plan' : 'Renew', onclick: () => openRenew(m) }),
       h('button', { class: 'btn btn-quiet', type: 'button', text: st.paused ? 'Resume' : 'Pause', onclick: () => toggleActive(m) }),
       h('button', { class: 'btn btn-quiet btn-danger', type: 'button', text: 'Remove', onclick: () => { S.confirmId = m.id; renderList(); } })
@@ -884,8 +932,10 @@ function memberRow(m) {
   );
 }
 function renderList() {
+  scheduleBoard();
   renderStats();
   renderToday();
+  renderPay();
   renderReminders();
   const list = S.loaded ? visibleMembers() : [];
   const ul = $('rows');
@@ -921,6 +971,39 @@ function reminderText(m, lang) {
   return st.expired
     ? 'Hi ' + n + '! Aapki A1 membership khatam ho gayi hai. Renew kar lijiye, shukriya!'
     : 'Hi ' + n + '! Aapki A1 membership ' + d + ' ko khatam ho rahi hai. Renew kar lijiye, shukriya!';
+}
+/* ---------- waiting for payment (owner confirms, coach tells the owner on WhatsApp) ---------- */
+function ownerUrl(text) { return 'https://wa.me/' + OWNER_WA + '?text=' + encodeURIComponent(text); }
+function signupText(m) { return 'A1 Fitness: ' + (m.name || 'A new member') + ' (' + (m.phone || '') + ') just signed up. Please check payment.'; }
+function payText(m) { return 'A1 Fitness: ' + (m.name || 'Member') + ' (' + (m.phone || '') + ') - ' + planLabel(m) + '. Please confirm payment.'; }
+function waitingList() {
+  const out = [];
+  Object.keys(S.members).forEach((k) => { const m = Object.assign({ id: k }, S.members[k]); if (m.end && m.paid !== true) out.push(m); });
+  Object.keys(S.signups).forEach((k) => { if (!S.members[k]) { const s = S.signups[k]; out.push({ id: k, name: s.name, phone: s.phone, pendingSignup: true }); } });
+  out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  return out;
+}
+function renderPay() {
+  const list = S.loaded ? waitingList() : [];
+  const sec = $('paySection');
+  sec.hidden = list.length === 0;
+  if (!list.length) return;
+  $('payCount').textContent = list.length + (list.length === 1 ? ' member' : ' members');
+  $('payNote').textContent = isOwner ? 'Tick Mark paid once the money is in your hands. Members with no plan yet are waiting for the coach to set one.' : 'Only the owner can mark a payment. Tap Tell owner to send him a WhatsApp message.';
+  const all = $('payAll');
+  all.hidden = isOwner;
+  all.href = ownerUrl('A1 Fitness, waiting for payment:\n' + list.map((m, i) => (i + 1) + '. ' + (m.name || 'Member') + ' (' + (m.phone || '') + ')' + (m.pendingSignup ? ' - new sign-up' : ' - ' + planLabel(m))).join('\n') + '\nPlease confirm.');
+  const box = $('payList');
+  box.replaceChildren.apply(box, list.map((m) => {
+    const act = [];
+    if (isOwner) {
+      if (!m.pendingSignup) act.push(h('button', { class: 'btn btn-primary', type: 'button', text: 'Mark paid', onclick: () => run(() => writeBatchOps((b) => b.update(doc(db, 'members', m.id), { paid: true })), (m.name || 'Member') + ' marked as paid').then(() => renderList()) }));
+    } else act.push(h('a', { class: 'btn btn-primary', target: '_blank', rel: 'noopener', text: 'Tell owner', href: ownerUrl(m.pendingSignup ? signupText(m) : payText(m)) }));
+    return h('li', { class: 'rem-item' },
+      h('div', { class: 'rem-head' }, h('span', { class: 'rem-name', text: m.name || 'Member' }), h('span', { class: 'pill warn', text: m.pendingSignup ? 'New sign-up' : 'Not paid' }), h('span', { class: 'rem-phone', text: m.phone || '' })),
+      m.pendingSignup ? null : h('p', { class: 'pass-note', text: planLabel(m) }),
+      act.length ? h('div', { class: 'actions' }, act) : null);
+  }));
 }
 function ccValue() { return String($('remCc').value || '').replace(/\D/g, ''); }
 function waUrl(m, text) {
@@ -1004,6 +1087,29 @@ function downloadBackup() {
   toast('Backup saved (' + allPeople().length + ' members)');
 }
 
+/* ---------- leaderboard: top streaks, published for the members' check-in page ---------- */
+function boardTop() {
+  return Object.keys(S.members).map((k) => S.members[k]).filter((m) => {
+    const st = status(m);
+    return !st.paused && !st.expired && !st.pending;
+  }).map((m) => ({ name: String(m.name || '').trim(), streak: streakNow(m) }))
+    .filter((x) => x.name && x.streak > 0)
+    .sort((a, b) => b.streak - a.streak || a.name.localeCompare(b.name))
+    .slice(0, 5);
+}
+let boardTimer = 0;
+let boardSig = '';
+function scheduleBoard() {
+  clearTimeout(boardTimer);
+  boardTimer = setTimeout(() => {
+    if (!S.loaded || !S.cfgLoaded || !auth.currentUser) return;
+    const top = boardTop();
+    const sig = todayISO() + JSON.stringify(top);
+    if (sig === boardSig) return;
+    setDoc(doc(db, 'config', 'board'), { asOf: todayISO(), top: top }).then(() => { boardSig = sig; }).catch(() => {});
+  }, 2500);
+}
+
 /* ---------- writes ---------- */
 async function writeBatchOps(fn) {
   const b = writeBatch(db);
@@ -1016,9 +1122,10 @@ function writeMemberPlan(key, info, plan) {
   const hadSignup = !!S.signups[key];
   return writeBatchOps((b) => {
     const fields = { name: info.name, phone: info.phone, start: plan.start, months: plan.months, price: plan.price, end: plan.end, paid: plan.paid };
-    if (existing) b.update(doc(db, 'members', key), fields);
+    const keepBest = Number(existing && existing.bestStreak) || 0;
+    if (existing) b.update(doc(db, 'members', key), Object.assign({ pubBest: keepBest }, fields));
     else b.set(doc(db, 'members', key), Object.assign({ joined: plan.start, active: true, createdAt: serverTimestamp() }, fields));
-    b.set(doc(db, 'pub', key), { name: info.name, state: existing && existing.active === false ? 'paused' : 'active', end: plan.end });
+    b.set(doc(db, 'pub', key), { name: info.name, state: existing && existing.active === false ? 'paused' : 'active', end: plan.end, best: keepBest });
     if (hadSignup) b.delete(doc(db, 'signups', key));
   });
 }
@@ -1088,21 +1195,29 @@ function applyCheckins(docs) {
     b.max = Math.max(b.max, Number(c.streak) || 0);
   });
   const writes = [];
-  Object.keys(best).forEach((key) => {
+  const pubWrites = [];
+  Object.keys(S.members).forEach((key) => {
     const m = S.members[key];
-    if (!m) return;
     const b = best[key];
     const upd = {};
-    const lv = m.lastVisit || '';
-    if (lv < b.date || (lv === b.date && (m.lastVisitAt || 0) < b.atMs)) { upd.lastVisit = b.date; upd.lastVisitAt = b.atMs; upd.streak = b.streak; }
-    const bs = Math.max(Number(m.bestStreak) || 0, b.max);
+    if (b) {
+      const lv = m.lastVisit || '';
+      if (lv < b.date || (lv === b.date && (m.lastVisitAt || 0) < b.atMs)) { upd.lastVisit = b.date; upd.lastVisitAt = b.atMs; upd.streak = b.streak; }
+    }
+    const bs = Math.max(Number(m.bestStreak) || 0, b ? b.max : 0);
     if (bs !== (Number(m.bestStreak) || 0)) upd.bestStreak = bs;
+    /* members read their best streak (for badges) from their public summary */
+    if (bs > (Number(m.pubBest) || 0)) { upd.pubBest = bs; pubWrites.push([key, bs]); }
     if (Object.keys(upd).length) writes.push([key, upd]);
   });
   if (!writes.length) return Promise.resolve();
   const chunks = [];
   for (let i = 0; i < writes.length; i += 400) chunks.push(writes.slice(i, i + 400));
-  return Promise.all(chunks.map((ch) => writeBatchOps((b) => ch.forEach((w) => b.update(doc(db, 'members', w[0]), w[1]))))).catch(() => {});
+  const pubChunks = [];
+  for (let i = 0; i < pubWrites.length; i += 400) pubChunks.push(pubWrites.slice(i, i + 400));
+  return Promise.all(chunks.map((ch) => writeBatchOps((bt) => ch.forEach((w) => bt.update(doc(db, 'members', w[0]), w[1])))))
+    .then(() => Promise.all(pubChunks.map((ch) => writeBatchOps((bt) => ch.forEach((w) => bt.update(doc(db, 'pub', w[0]), { best: w[1] })))).map((p) => p.catch(() => {}))))
+    .catch(() => {});
 }
 const readCheckin = (d) => {
   const c = d.data();
@@ -1159,6 +1274,7 @@ function startData() {
     renderList();
   }, () => {}));
   unsubs.push(onSnapshot(doc(db, 'config', 'gym'), (snap) => {
+    S.cfgLoaded = true;
     if (snap.exists()) {
       const d = snap.data();
       S.cfg = { closedWeekdays: Array.isArray(d.closedWeekdays) ? d.closedWeekdays : [0], closedDates: Array.isArray(d.closedDates) ? d.closedDates : [] };
@@ -1170,6 +1286,7 @@ function startData() {
   watchToday();
 }
 function stopData() {
+  S.cfgLoaded = false; boardSig = ''; clearTimeout(boardTimer);
   unsubs.forEach((u) => { try { u(); } catch (e) {} });
   unsubs = [];
   if (todayUnsub) { todayUnsub(); todayUnsub = null; }
@@ -1328,6 +1445,10 @@ function closeClosed() { $('closedOverlay').hidden = true; }
 /* ---------- sign in and wiring ---------- */
 function showGate(msg) { $('gate').hidden = !msg; $('gate').textContent = msg || ''; }
 function setSignedIn(user) {
+  isOwner = !!(user && String(user.email || '').toLowerCase() === OWNER_EMAIL);
+  const sub = document.querySelector('.mark-sub');
+  if (sub) sub.textContent = 'Fitness · ' + (isOwner ? 'Owner desk' : 'Coach desk');
+  if (addDraft) resetForm();
   $('loginCard').hidden = !!user;
   $('desk').hidden = !user;
   $('topBtns').hidden = !user;

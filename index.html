@@ -360,6 +360,59 @@ button { cursor: pointer; }
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes flare { 0% { transform: scale(0.3); } 50% { transform: scale(1.35); filter: drop-shadow(0 0 28px rgba(255, 190, 80, 1)); } 100% { transform: scale(1); } }
 .streak-note.cheer { color: var(--accent-hi); font-weight: 600; font-size: 16px; }
+
+
+/* Payment reminders */
+.rem-tools { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; }
+.rem-tools .chip { min-height: 40px; }
+.rem-cc { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.rem-cc input { width: 96px; min-height: 40px; padding: 8px 12px; background: rgba(11, 7, 19, 0.85); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); }
+.rem-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.rem-item { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(11, 7, 19, 0.6); display: flex; flex-direction: column; gap: 10px; }
+.rem-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rem-name { font-family: var(--f-display); font-weight: 600; font-size: 22px; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; min-width: 0; }
+.rem-phone { font-family: var(--f-mono); font-size: 13px; color: var(--muted); }
+.rem-item textarea { width: 100%; min-height: 84px; padding: 8px 12px; background: rgba(11, 7, 19, 0.85); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; resize: vertical; }
+.rem-item textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+.rem-item a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Renewals due */
+.due { margin-top: 20px; padding: 16px; background: rgba(21, 15, 32, 0.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 12px; }
+.cc-field { max-width: 220px; }
+.cc-field input { width: 100%; min-height: 44px; padding: 8px 12px; background: rgba(11, 7, 19, 0.85); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); }
+.cc-field .hint { font-size: 13px; color: var(--muted); }
+.due-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.due-item { padding: 12px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.due-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.due-name { font-family: var(--f-display); font-weight: 600; font-size: 22px; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; min-width: 0; }
+.due-sub { font-size: 14px; color: var(--muted); }
+.remind-box { display: flex; flex-direction: column; gap: 10px; }
+.remind-box textarea { width: 100%; min-height: 110px; padding: 10px 12px; background: rgba(11, 7, 19, 0.85); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; resize: vertical; }
+.remind-box textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.btn-wa { background: var(--ok); border-color: var(--ok); color: #04210f; font-weight: 700; }
+
+.backup-note { margin-top: 10px; }
+.backup-note.stale { color: var(--warn); }
+
+/* Badges and leaderboard */
+.sub-h { margin: 6px 0 0; font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.badges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.badge { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 12px; background: rgba(11, 7, 19, 0.6); text-align: center; }
+.badge-n { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 26px; border: 2px dashed var(--line); color: var(--muted); }
+.badge-l { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.badge.earned { border-color: var(--accent); }
+.badge.earned .badge-n { border: 2px solid var(--accent-hi); background: linear-gradient(180deg, var(--accent-hi), var(--accent) 60%, var(--accent-lo)); color: var(--accent-ink); box-shadow: 0 0 18px rgba(242, 184, 59, 0.4); }
+.badge.earned .badge-l { color: var(--accent-hi); }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: rank; }
+.board li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(11, 7, 19, 0.6); }
+.board .rank { font-family: var(--f-display); font-weight: 700; font-size: 22px; color: var(--accent); text-align: center; }
+.board .who { overflow-wrap: anywhere; font-weight: 600; }
+.board .who small { margin-left: 6px; font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--violet); }
+.board .pts { font-family: var(--f-mono); font-size: 14px; color: var(--accent-hi); white-space: nowrap; }
+.board li.me { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(155, 77, 255, 0.35); }
+#badgeNote, #boardAsOf { margin-top: 4px; }
+.badges-wrap, .board-wrap { display: flex; flex-direction: column; gap: 10px; }
 </style></head><body>
 <div class="stage" aria-hidden="true">
   <div class="glow"></div>
@@ -431,6 +484,16 @@ button { cursor: pointer; }
     <div class="week" id="weekRow" aria-label="Last 7 days"></div>
     <div class="res-lines" id="homeLines"></div>
     <button class="btn btn-primary btn-big" id="checkBtn" type="button">Check in</button>
+    <div class="badges-wrap" id="badgesWrap">
+      <h2 class="sub-h">Badges</h2>
+      <div class="badges" id="badges"></div>
+      <p class="streak-note" id="badgeNote"></p>
+    </div>
+    <div class="board-wrap" id="boardWrap" hidden>
+      <h2 class="sub-h">Top streaks</h2>
+      <ol class="board" id="boardList"></ol>
+      <p class="streak-note" id="boardAsOf"></p>
+    </div>
     <button class="btn btn-quiet" id="switchBtn" type="button">Not you? Use another number</button>
   </section>
 
@@ -530,6 +593,50 @@ function cheerFor(n) {
 }
 
 /* ---------- the member's home ---------- */
+const BADGES = [7, 30, 100];
+function renderBadges(best) {
+  const box = $('badges');
+  box.replaceChildren();
+  BADGES.forEach((n) => {
+    const earned = best >= n;
+    const el = document.createElement('div');
+    el.className = 'badge' + (earned ? ' earned' : '');
+    const num = document.createElement('span');
+    num.className = 'badge-n';
+    num.textContent = String(n);
+    const lab = document.createElement('span');
+    lab.className = 'badge-l';
+    lab.textContent = earned ? n + ' days earned' : n + ' days';
+    el.append(num, lab);
+    box.append(el);
+  });
+  const next = BADGES.filter((n) => best < n)[0];
+  $('badgeNote').textContent = next ? 'Best streak: ' + dayWord(best) + '. ' + dayWord(next - best) + ' to the ' + next + '-day badge.' : 'All badges earned. Legend!';
+}
+function renderBoard(snap, myName, today) {
+  const wrap = $('boardWrap');
+  const data = snap && snap.exists && snap.exists() ? snap.data() : null;
+  const top = data && Array.isArray(data.top) ? data.top.filter((x) => x && x.name && Number(x.streak) > 0).slice(0, 5) : [];
+  if (!top.length) { wrap.hidden = true; return; }
+  const list = $('boardList');
+  list.replaceChildren();
+  const mine = String(myName || '').trim().toLowerCase();
+  top.forEach((x, i) => {
+    const li = document.createElement('li');
+    const isMe = mine && String(x.name).trim().toLowerCase() === mine;
+    if (isMe) li.className = 'me';
+    const r = document.createElement('span'); r.className = 'rank'; r.textContent = String(i + 1);
+    const w = document.createElement('span'); w.className = 'who'; w.textContent = String(x.name);
+    if (isMe) { const t = document.createElement('small'); t.textContent = 'You'; w.append(t); }
+    const pts = document.createElement('span'); pts.className = 'pts'; pts.textContent = dayWord(Number(x.streak));
+    li.append(r, w, pts);
+    list.append(li);
+  });
+  const as = data.asOf || '';
+  $('boardAsOf').textContent = as && as < today ? 'As of ' + fmtDate(as) + '.' : 'Updated today.';
+  wrap.hidden = false;
+}
+
 function showWait(title, text) {
   $('waitTitle').textContent = title;
   $('waitText').textContent = text;
@@ -569,6 +676,8 @@ async function loadHome(banner) {
     $('streakNote').hidden = inactive;
     $('weekRow').hidden = inactive;
     $('checkBtn').hidden = inactive;
+    $('badgesWrap').hidden = inactive;
+    if (inactive) $('boardWrap').hidden = true;
     if (inactive) {
       lines($('homeLines'), [paused ? 'Your membership is paused. Please see the coach.' : (p.end ? 'Your plan ended on ' + fmtDate(p.end) + '.' : 'Your plan is not set up yet.') + ' Please see the coach to renew.']);
       show('sHome');
@@ -579,6 +688,7 @@ async function loadHome(banner) {
     const prev = openBefore(today);
     const need = days.slice();
     if (need.indexOf(prev) === -1) need.push(prev);
+    const boardP = getDoc(doc(db, 'config', 'board')).catch(() => null);
     const snaps = await Promise.all(need.map((d) => getDoc(doc(db, 'checkins', key + '_' + d))));
     const got = {};
     need.forEach((d, i) => { if (snaps[i].exists()) got[d] = snaps[i].data(); });
@@ -608,6 +718,8 @@ async function loadHome(banner) {
       el.append(dot, lab);
       wk.append(el);
     });
+    renderBadges(Math.max(Number(p.best) || 0, streak));
+    renderBoard(await boardP, p.name, today);
     const left = dayNum(p.end) - dayNum(today);
     const info = ['Your plan ends on ' + fmtDate(p.end) + ' (' + dayWord(left) + ' left).'];
     if (left <= 7) info.push('Ask the coach about renewing.');
